@@ -19,6 +19,7 @@ import { Card, CardAction, CardContent, CardFooter, CardHeader } from "@/compone
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { BrowserWallet } from "@/components/browser-wallet";
 import { cn } from "@/lib/utils";
 
 type Step = { tool: string; args: unknown; result: any; error?: boolean };
@@ -98,6 +99,7 @@ export default function Home() {
         </p>
       </header>
 
+      <BrowserWallet />
       <div className="grid flex-1 gap-6 lg:grid-cols-[380px_1fr]">
         {/* Left: setup + tools */}
         <aside className="flex flex-col gap-6">

@@ -60,4 +60,20 @@ export const tools: Tool[] = [
     },
     run: async ({ sides = 6 }) => ({ rolled: Math.floor(Math.random() * sides) + 1, sides }),
   },
+  {
+  name: "get_joke",
+  description: "Get a random joke. Use when the user wants a joke.",
+  parameters: {
+    type: "object",
+    properties: {}
+  },
+  run: async () => {
+    const res = await fetch(
+      "https://official-joke-api.appspot.com/random_joke"
+    );
+
+    return res.json();
+  },
+},
+
 ];
