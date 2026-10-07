@@ -1,193 +1,241 @@
-# agentmaxxin
+# Agentmaxxin
 
-A minimal Next.js template for building AI agents that call tools and pay for services with their own crypto wallet. The agent is powered by Google Gemini.
+Agentmaxxin is a Next.js starter application for building AI agents that can
+call tools. It uses Google Gemini for responses and function calling, and
+includes a demo wallet and a mock paid weather API to demonstrate a signed
+payment flow.
 
-The template is intentionally small. You will spend almost all of your time in a single file, `agent/tools.ts`, where each tool is a plain TypeScript function that the agent can decide to call.
+The project is designed to be explored incrementally: start the app, try the
+included tools, then add or modify tools in `agent/tools.ts`.
 
-## What You Get
+## What You Will Build
 
-1. A working agent loop that sends your message to Gemini, runs any tools Gemini asks for, and returns the final answer.
-2. A tools file where you add, remove, or change the functions your agent can use.
-3. An agent wallet that can sign payments, based on the x402 payment pattern.
-4. A mock paid weather API that refuses requests until the agent pays for them.
-5. A single page interface with guided setup, a one click wallet button, and a chat that shows every tool call and payment.
+The application provides:
+
+- A chat interface for sending messages to a Gemini-powered agent.
+- A server-side agent loop that can call tools and return their results.
+- Example tools for weather, wallet information, dice rolls, jokes, and
+  country facts.
+- A test wallet on Base Sepolia for signing demo payment messages.
+- A mock weather endpoint that requires a valid signed payment message.
+
+> **Important:** This is a development demo. The mock payment is signed but is
+> not submitted to a blockchain, and no cryptocurrency is transferred.
 
 ## Prerequisites
 
-1. Node.js version 20 or newer. Check with `node -v`.
-2. A free Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey).
+- Node.js 20 or later.
+- npm.
+- A Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey).
 
-## Getting Started
+## Step-by-Step Setup
 
-### Step 1. Create your project
+### 1. Get the project
 
-Run the following command in your terminal. Replace `my-agent` with any folder name you like.
+To create a new copy from the published starter:
 
 ```bash
 npx agentmaxxin my-agent
-```
-
-This copies the template into a new folder, creates a `.env` file for you, and installs all packages.
-
-### Step 2. Move into the project folder
-
-```bash
 cd my-agent
 ```
 
-### Step 3. Add your Gemini API key
+If you already have this repository locally, open a terminal in its root
+directory and continue to the next step.
 
-Open the `.env` file in the project root and paste your key after the equals sign:
+### 2. Install dependencies
+
+For a local repository checkout, install the packages with:
 
 ```bash
-GEMINI_API_KEY=your_key_here
+npm install
 ```
 
-Save the file. The key stays on your machine and is never committed to git.
+The project generator installs dependencies when it creates a new project.
 
-### Step 4. Start the app
+### 3. Configure Gemini
+
+Create a `.env` file in the project root if one does not already exist. You
+can start with `.env.example`, then set your API key:
+
+```dotenv
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+Optionally choose a model:
+
+```dotenv
+GEMINI_MODEL=gemini-flash-latest
+```
+
+The Gemini key is used by the server-side API route. Do not expose it in
+client-side code or commit it to source control. Restart the development
+server after changing environment variables.
+
+### 4. Start the development server
 
 ```bash
 npm run dev
 ```
 
-### Step 5. Create the agent wallet
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-Open [http://localhost:3000](http://localhost:3000) in your browser. The Setup panel on the left walks you through everything.
+### 5. Create the agent wallet
 
-Click **Create wallet**. The agent now has its own wallet, which it uses to sign payments for paid APIs. The wallet is saved in `.agent-wallet.json` in your project folder, so it stays the same after a restart.
+In the Setup panel, select **Create wallet**. The application creates a wallet
+and saves its private key in `.agent-wallet.json` at the project root. The app
+uses the wallet to sign the demo payment message required by the weather tool.
 
-### Step 6. Talk to your agent
+Use a test wallet only. Do not put a wallet containing real funds in this
+application.
 
-Try one of these prompts:
+### 6. Send a test prompt
 
-1. `What's the weather in Mumbai?` The agent calls the paid weather API and pays for it with its wallet.
-2. `What's in your wallet?` The agent reads its own wallet address and balance.
-3. `Roll a 20 sided dice` The agent calls a simple tool with no wallet involved.
+Try these prompts in the chat:
 
-Click any tool entry above a reply to see exactly what the agent sent and received. The agent remembers the conversation, so you can ask follow up questions. Use **Clear** to start over.
+| Prompt | What to expect |
+| --- | --- |
+| `What's the weather in Mumbai?` | Calls the mock weather API and demonstrates the signed-payment flow. |
+| `What's in your wallet?` | Calls the wallet tool to read the wallet address and Base Sepolia ETH balance. |
+| `Roll a 20 sided dice` | Calls the local dice tool; no wallet or external service is needed. |
+| `Tell me a joke` | Calls the example joke API. |
+| `Get information about India` | Calls the Rest Countries API. |
 
-### Step 7. Build your own tool
+Tool calls and their results are shown with the agent's response. Use **Clear**
+to remove the current conversation from the page.
 
-Open `agent/tools.ts` and add a new object to the `tools` list. For example:
+## How the Application Works
+
+### Chat request lifecycle
+
+1. The browser sends the conversation to `POST /api/agent`.
+2. The route passes the messages and available tool definitions to Gemini.
+3. If Gemini responds with a tool call, the server runs the matching function
+   from `agent/tools.ts`.
+4. The server sends the tool result back to Gemini.
+5. The loop repeats until Gemini returns a text response or reaches the
+   five-step limit.
+6. The route returns the answer and a list of tool steps to the browser.
+
+The Gemini API key stays on the server; it is not sent as part of the browser
+request.
+
+### Demo payment lifecycle
+
+The weather example demonstrates a payment-gated API:
+
+1. `get_weather` requests the local `/api/weather` endpoint.
+2. The endpoint replies with `402 Payment Required` and demo payment details
+   when the request has no valid payment.
+3. `payAndFetch` signs a message containing the payment details with the agent
+   wallet.
+4. The tool retries the request with the signed message in an `X-PAYMENT`
+   header.
+5. The endpoint verifies the signature and returns mock weather data.
+
+This is a demonstration of a signed-payment flow, not an on-chain payment.
+The weather values are generated by the mock endpoint and are not live
+forecasts.
+
+## Add or Change a Tool
+
+Tool definitions are in `agent/tools.ts`. Each tool specifies:
+
+| Property | Purpose |
+| --- | --- |
+| `name` | Unique identifier, written in `snake_case`. |
+| `description` | Tells Gemini what the tool does and when to call it. |
+| `parameters` | JSON Schema for arguments Gemini may provide. |
+| `run` | Server-side function that performs the work and returns a result. |
+
+For example, add a tool that calls a public joke API:
 
 ```ts
 {
   name: "get_joke",
-  description: "Get a random joke.",
-  parameters: { type: "object", properties: {} },
+  description: "Get a random joke when the user asks for one.",
+  parameters: {
+    type: "object",
+    properties: {},
+  },
   run: async () => {
-    const res = await fetch("https://official-joke-api.appspot.com/random_joke");
-    return res.json();
+    const response = await fetch(
+      "https://official-joke-api.appspot.com/random_joke",
+    );
+
+    if (!response.ok) {
+      throw new Error(`Joke API request failed: ${response.status}`);
+    }
+
+    return response.json();
   },
 },
 ```
 
-Save the file and refresh the page. Your new tool appears in the Tools panel. Now ask your agent to tell you a joke.
-
-## Writing Good Tools
-
-Every tool has four parts.
-
-| Field | Purpose |
-| :--- | :--- |
-| `name` | A unique identifier in snake case, such as `get_weather`. |
-| `description` | Plain English explaining what the tool does. Gemini reads this to decide when to use it, so be clear and specific. |
-| `parameters` | A JSON Schema describing the inputs. Gemini fills in these values for you. |
-| `run` | The function that does the work. Whatever it returns is sent back to Gemini. |
-
-A few guidelines:
-
-1. Return plain objects, for example `{ temperature: 28 }`, rather than strings or class instances.
-2. Keep each tool focused on one job. Several small tools work better than one large tool.
-3. If something can fail, let it throw. The agent loop catches the error and reports it back to Gemini, which can then explain the problem or try again.
-
-## How It Works
-
-### The agent loop
-
-The loop lives in `agent/agent.ts`.
-
-1. Your message and the list of tools are sent to Gemini.
-2. If Gemini replies with a tool call, the matching `run` function is executed and its result is sent back to Gemini.
-3. This repeats until Gemini replies with plain text, which becomes the final answer.
-4. The loop stops after five rounds to prevent runaway tool calls.
-
-### Paying for an API
-
-The weather tool demonstrates the x402 pattern, where an agent pays for an API one request at a time.
-
-1. The agent requests `/api/weather`.
-2. The API responds with status `402 Payment Required` along with a price, an asset, and a recipient address.
-3. The agent wallet signs a payment message for that amount.
-4. The agent repeats the request with the signed payment in an `X-PAYMENT` header.
-5. The API verifies the signature and responds with status `200 OK` and the weather data.
-
-All of this is handled by the `payAndFetch` helper in `agent/wallet.ts`. Any tool that calls a paid API can use the same helper.
-
-Payments in this template are cryptographically signed but are not submitted to a blockchain, so no real funds are ever moved.
-
-## Project Structure
-
-| Path | Description |
-| :--- | :--- |
-| `agent/tools.ts` | The tools your agent can use. This is the file you will edit most. |
-| `agent/agent.ts` | The agent loop that communicates with Gemini. |
-| `agent/wallet.ts` | The agent wallet, payment signing, and payment verification. |
-| `app/page.tsx` | The page: setup steps, tools list, and chat. |
-| `app/api/agent/route.ts` | The server endpoint that runs the agent. |
-| `app/api/wallet/route.ts` | The server endpoint that creates and reads the agent wallet. |
-| `app/api/weather/route.ts` | The mock paid weather API. |
-| `components/ui/` | Interface components from [shadcn/ui](https://ui.shadcn.com). You do not need to edit these. |
-| `.env` | Your API key and optional settings. |
-| `.agent-wallet.json` | The agent wallet, created when you click Create wallet. Never share this file. |
+After saving the file, the development server reloads the tool list. Check the
+description and parameter schema carefully: Gemini uses them to decide when
+and how to call the tool. Keep tools focused, return serializable values such
+as plain objects, and throw an error when an operation fails so the failure
+can be reported.
 
 ## Configuration
 
-All settings live in the `.env` file.
-
 | Variable | Required | Description |
-| :--- | :--- | :--- |
-| `GEMINI_API_KEY` | Yes | Your Gemini API key. |
-| `GEMINI_MODEL` | No | The Gemini model to use. Defaults to `gemini-flash-latest`. |
-| `WALLET_PRIVATE_KEY` | No | Use an existing wallet instead of the Create wallet button. A private key starting with `0x`. When set, it takes priority over `.agent-wallet.json`. |
+| --- | --- | --- |
+| `GEMINI_API_KEY` | Yes | API key used by the server to call Gemini. |
+| `GEMINI_MODEL` | No | Gemini model name. Defaults to `gemini-flash-latest`. |
+| `WALLET_PRIVATE_KEY` | No | Optional test wallet private key (`0x...`). Takes precedence over `.agent-wallet.json`. |
 
-Restart `npm run dev` after changing any value in `.env`.
+Restart `npm run dev` after changing a value in `.env`.
 
-## The Agent Wallet
+## Project Structure
 
-Clicking **Create wallet** generates a new private key and saves it to `.agent-wallet.json`. The file is listed in `.gitignore`, so it is never committed.
+| Path | Responsibility |
+| --- | --- |
+| `agent/agent.ts` | Gemini integration and the tool-calling loop. |
+| `agent/tools.ts` | Tool schemas and server-side tool implementations. |
+| `agent/wallet.ts` | Wallet creation, balance lookup, message signing, and payment verification. |
+| `app/page.tsx` | Chat interface, setup instructions, and tool list. |
+| `app/api/agent/route.ts` | Agent status and chat API endpoints. |
+| `app/api/wallet/route.ts` | Wallet status and creation endpoints. |
+| `app/api/weather/route.ts` | Mock payment-gated weather API. |
+| `components/` | Browser wallet and reusable UI components. |
+| `.env.example` | Example environment variable configuration. |
 
-Once the wallet exists, the Setup panel shows:
+## Security Notes
 
-1. The wallet address, with a button to copy it.
-2. The current ETH balance on Base Sepolia, with a refresh button.
-3. A link to view the wallet on the Base Sepolia block explorer.
-4. A link to faucets where you can request free test ETH.
-
-To start again with a new wallet, stop the server, delete `.agent-wallet.json`, restart, and click **Create wallet** again.
-
-To use a wallet you already have, set `WALLET_PRIVATE_KEY` in `.env` instead.
-
-> **Security note:** Only ever use this wallet for testing. Never send real funds to it. Private keys in `.agent-wallet.json` and `.env` are stored as plain text.
+- Use a test wallet only. Do not use a wallet containing real funds.
+- `.agent-wallet.json` and `.env` contain sensitive values and must not be
+  shared or committed.
+- A private key is stored as plain text in `.agent-wallet.json` when the
+  application creates a wallet.
+- The demo payment is only a signed message. It does not move funds or settle
+  on Base Sepolia.
+- Tools execute on the server. Review and validate tool inputs before using
+  them to access external services or perform sensitive operations.
 
 ## Troubleshooting
 
-| Problem | Solution |
-| :--- | :--- |
-| The page says to add `GEMINI_API_KEY` | Add your key to `.env` and restart `npm run dev`. |
-| The agent never uses my new tool | Make the `description` more specific about when the tool should be used, then restart the server. |
-| The weather tool fails with "no wallet yet" | Click **Create wallet** in the Setup panel, then ask again. |
-| Port 3000 is already in use | Run `npm run dev -- -p 3001` and open that port instead. |
-| A model error appears in the chat | Check that your API key is valid, or set a different model in `GEMINI_MODEL`. |
+| Symptom | Checks |
+| --- | --- |
+| The page asks for `GEMINI_API_KEY` | Set the key in the project-root `.env` file, then restart `npm run dev`. |
+| Gemini returns `403 PERMISSION_DENIED` | Check that the key is correct and belongs to a Google project with access to the selected Gemini model. If Google says the project has been denied access, contact Google support or use an eligible project. |
+| Gemini reports an invalid model | Verify `GEMINI_MODEL` is supported for your project, or remove it to use the default model. |
+| The weather tool reports that no wallet exists | Select **Create wallet** in the Setup panel, then retry. |
+| Wallet balance cannot be loaded | Confirm the network is reachable and check the wallet on Base Sepolia. Balance lookup requires RPC access. |
+| The agent does not call a new tool | Make the tool description explicit about the user requests it handles, and confirm the parameter schema matches the implementation. |
+| Port 3000 is already in use | Start the app on another port with `npm run dev -- -p 3001`, then open `http://localhost:3001`. |
 
-## Tech Stack
+## Useful Commands
 
-1. [Next.js](https://nextjs.org) for the app and API routes.
-2. [shadcn/ui](https://ui.shadcn.com) and [Tailwind CSS](https://tailwindcss.com) for the interface.
-3. [Google Gen AI SDK](https://www.npmjs.com/package/@google/genai) for Gemini function calling.
-4. [viem](https://viem.sh) for wallet creation, message signing, and reading Base Sepolia.
+```bash
+npm run dev    # Start the development server
+npm run build  # Create a production build
+npm run start  # Start the production server after building
+```
 
-## License
+## Technology
 
-MIT
+- [Next.js](https://nextjs.org) and [React](https://react.dev)
+- [Google Gen AI SDK](https://www.npmjs.com/package/@google/genai)
+- [viem](https://viem.sh) for wallet operations and Base Sepolia access
+- [Tailwind CSS](https://tailwindcss.com) and [shadcn/ui](https://ui.shadcn.com)
